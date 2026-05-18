@@ -1,6 +1,19 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
   `${window.location.protocol}//${window.location.hostname}:5000/api`;
 
+// If no explicit API URL is set and we're NOT on localhost → skip network, go straight to LocalStorage
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const hasExplicitApi = Boolean(import.meta.env.VITE_API_URL);
+const SKIP_NETWORK = !isLocalhost && !hasExplicitApi;
+
+// Fast fetch with 2-second timeout so fallback kicks in immediately on localhost dev too
+const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 2000): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+};
+
 const LOCAL_STORAGE_DB_KEY = 'smart_society_offline_db';
 
 // Helper to initialize and retrieve client-side LocalStorage DB
@@ -570,8 +583,9 @@ const getHeaders = () => {
 export const api = {
   // Generic fetch methods
   get: async <T>(endpoint: string): Promise<T> => {
+    if (SKIP_NETWORK) return handleLocalStorageFallback('GET', endpoint, null) as Promise<T>;
     try {
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
         method: 'GET',
         headers: getHeaders(),
       });
@@ -580,13 +594,13 @@ export const api = {
         throw new Error(err.error || `HTTP error! status: ${res.status}`);
       }
       return res.json() as Promise<T>;
-    } catch (networkErr: any) {
-      // Automatic LocalStorage Fallback sandbox mode
+    } catch {
       return handleLocalStorageFallback('GET', endpoint, null) as Promise<T>;
     }
   },
 
   post: async <T>(endpoint: string, data: any, isMultipart = false): Promise<T> => {
+    if (SKIP_NETWORK) return handleLocalStorageFallback('POST', endpoint, data) as Promise<T>;
     try {
       let headers: HeadersInit = {};
       let body: any;
@@ -602,7 +616,7 @@ export const api = {
         body = JSON.stringify(data);
       }
 
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers,
         body,
@@ -613,15 +627,15 @@ export const api = {
         throw new Error(err.error || `HTTP error! status: ${res.status}`);
       }
       return res.json() as Promise<T>;
-    } catch (networkErr: any) {
-      // Automatic LocalStorage Fallback sandbox mode
+    } catch {
       return handleLocalStorageFallback('POST', endpoint, data) as Promise<T>;
     }
   },
 
   put: async <T>(endpoint: string, data: any): Promise<T> => {
+    if (SKIP_NETWORK) return handleLocalStorageFallback('PUT', endpoint, data) as Promise<T>;
     try {
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify(data),
@@ -631,15 +645,15 @@ export const api = {
         throw new Error(err.error || `HTTP error! status: ${res.status}`);
       }
       return res.json() as Promise<T>;
-    } catch (networkErr: any) {
-      // Automatic LocalStorage Fallback sandbox mode
+    } catch {
       return handleLocalStorageFallback('PUT', endpoint, data) as Promise<T>;
     }
   },
 
   delete: async <T>(endpoint: string): Promise<T> => {
+    if (SKIP_NETWORK) return handleLocalStorageFallback('DELETE', endpoint, null) as Promise<T>;
     try {
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
         method: 'DELETE',
         headers: getHeaders(),
       });
@@ -648,8 +662,7 @@ export const api = {
         throw new Error(err.error || `HTTP error! status: ${res.status}`);
       }
       return res.json() as Promise<T>;
-    } catch (networkErr: any) {
-      // Automatic LocalStorage Fallback sandbox mode
+    } catch {
       return handleLocalStorageFallback('DELETE', endpoint, null) as Promise<T>;
     }
   },
