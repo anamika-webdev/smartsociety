@@ -4,11 +4,25 @@ import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 
 export const Layout: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const token = localStorage.getItem('token');
 
-  // Page title mapping based on route path
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Close sidebar on wide screens when resized down (prevent stuck-open state)
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 1024) setSidebarOpen(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
       case '/dashboard': return 'Dashboard Overview';
@@ -25,26 +39,42 @@ export const Layout: React.FC = () => {
     }
   };
 
-  // Enforce authentications
   if (!token) {
     return <Navigate to="/" replace />;
   }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-darkBg transition-colors duration-300 flex">
-      {/* Sidebar Navigation */}
-      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-      
-      {/* Main Content Pane */}
-      <div 
+
+      {/* ── Mobile backdrop overlay ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar (off-screen on mobile, visible on lg+) ── */}
+      <Sidebar
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        mobileOpen={sidebarOpen}
+        onMobileClose={() => setSidebarOpen(false)}
+      />
+
+      {/* ── Main content pane ── */}
+      <div
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300
-          ${collapsed ? 'pl-20' : 'pl-64'}`}
+          lg:${collapsed ? 'pl-20' : 'pl-64'}`}
       >
-        {/* Top Navbar */}
-        <Navbar title={getPageTitle(location.pathname)} />
-        
+        {/* Top Navbar — passes hamburger handler */}
+        <Navbar
+          title={getPageTitle(location.pathname)}
+          onMenuClick={() => setSidebarOpen(true)}
+        />
+
         {/* Route Render Outlet */}
-        <main className="flex-1 p-6 overflow-y-auto max-w-[1600px] w-full mx-auto fade-in">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-[1600px] w-full mx-auto fade-in">
           <Outlet />
         </main>
       </div>
