@@ -1,0 +1,53 @@
+import React, { useState, useEffect } from 'react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
+import { Navbar } from './Navbar';
+
+export const Layout: React.FC = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const token = localStorage.getItem('token');
+
+  // Page title mapping based on route path
+  const getPageTitle = (pathname: string) => {
+    switch (pathname) {
+      case '/dashboard': return 'Dashboard Overview';
+      case '/buildings': return 'Buildings Visualizer';
+      case '/rooms': return 'Rooms & Flats Manager';
+      case '/tenants': return 'Tenant Directory';
+      case '/complaints': return 'Complaints Portal';
+      case '/billing': return 'Rent & Payments Ledger';
+      case '/notices': return 'Notice Board';
+      case '/visitors': return 'Visitor Security Entry Log';
+      case '/analytics': return 'Society Analytics & Reports';
+      case '/settings': return 'System Settings';
+      default: return 'Smart Society Management';
+    }
+  };
+
+  // Enforce authentications
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-darkBg transition-colors duration-300 flex">
+      {/* Sidebar Navigation */}
+      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
+      
+      {/* Main Content Pane */}
+      <div 
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300
+          ${collapsed ? 'pl-20' : 'pl-64'}`}
+      >
+        {/* Top Navbar */}
+        <Navbar title={getPageTitle(location.pathname)} />
+        
+        {/* Route Render Outlet */}
+        <main className="flex-1 p-6 overflow-y-auto max-w-[1600px] w-full mx-auto fade-in">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};
